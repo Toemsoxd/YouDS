@@ -241,8 +241,7 @@
             viewport.innerHTML = '';
 
             var img = document.createElement('img');
-            // Modificado para buscar archivos en formato "pt[número].gif"
-            img.src = "videos/" + currentVideoFolder + "/pt" + currentClipIndex + ".gif";
+            img.src = currentVideoFolder + "/pt" + currentClipIndex + ".gif";
             img.alt = "PT" + currentClipIndex;
             
             viewport.appendChild(img);
