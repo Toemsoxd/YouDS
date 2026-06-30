@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=256, user-scalable=no">
     <title>DSiTube</title>
     <style type="text/css">
-        /* Ajustes estrictos para la pantalla táctil de la DSi (256x192) */
         html, body {
             background-color: #121212;
             color: #E0E0E0;
@@ -23,7 +22,6 @@
             text-decoration: none;
         }
 
-        /* Contenedor principal del tamaño de una sola pantalla */
         .dsi-screen {
             width: 256px;
             height: 192px;
@@ -31,10 +29,406 @@
             background-color: #121212;
         }
 
-        /* --- VISTA DE MENÚ PRINCIPAL --- */
         .menu-header {
             background-color: #1e1e1e;
             height: 22px;
+            line-height: 22px;
+            border-bottom: 2px solid #FF0000;
+            text-align: center;
+        }
+        
+        .logo-text {
+            color: #FFFFFF;
+            font-weight: bold;
+            font-size: 11px;
+        }
+        
+        .logo-badge {
+            background-color: #FF0000;
+            color: #FFFFFF;
+            padding: 0px 3px;
+            font-weight: bold;
+            border-radius: 2px;
+        }
+
+        .menu-scroll-area {
+            width: 256px;
+            height: 168px;
+            overflow-y: auto; /* Scroll táctil vertical para la lista */
+        }
+
+        .video-item {
+            background-color: #1a1a1a;
+            border-bottom: 1px solid #2d2d2d;
+            padding: 5px 6px;
+            cursor: pointer;
+        }
+
+        .video-item:active {
+            background-color: #2d2d2d;
+        }
+
+        .video-title-link {
+            font-weight: bold;
+            font-size: 10px;
+            color: #FFFFFF;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .video-meta {
+            font-size: 8px;
+            color: #888888;
+        }
+
+        .player-video-side {
+            position: absolute;
+            top: 24px;
+            left: 4px;
+            width: 160px;
+            height: 144px;
+            background-color: #000000;
+            border: 1px solid #333333;
+            overflow: hidden;
+        }
+
+        .player-video-side img {
+            width: 160px;
+            height: 144px;
+            display: block;
+        }
+
+        /* Consola de diagnóstico integrada en el marco del video */
+        .error-overlay {
+            width: 148px;
+            height: 132px;
+            padding: 6px;
+            color: #FF4444;
+            font-size: 8px;
+            text-align: left;
+            word-wrap: break-word;
+            overflow: hidden;
+        }
+
+        .player-control-side {
+            position: absolute;
+            top: 4px;
+            left: 168px;
+            width: 84px;
+            height: 184px;
+            overflow: hidden;
+        }
+
+        .back-btn {
+            display: block;
+            background-color: #333333;
+            color: #FFFFFF;
+            padding: 3px 0;
+            border: 1px solid #555555;
+            font-size: 8px;
+            font-weight: bold;
+            text-align: center;
+            width: 82px;
+            margin-bottom: 4px;
+        }
+
+        .back-btn:active {
+            background-color: #555555;
+        }
+
+        .now-playing-title {
+            font-size: 8px;
+            font-weight: bold;
+            color: #FFFFFF;
+            width: 82px;
+            white-space: nowrap;
+            overflow: hidden;
+            margin-bottom: 2px;
+        }
+
+        .status-badge {
+            background-color: #111111;
+            border: 1px solid #2d2d2d;
+            color: #00FF00;
+            font-size: 8px;
+            padding: 2px 0;
+            text-align: center;
+            width: 80px;
+            margin-bottom: 6px;
+        }
+
+        .vertical-btn {
+            display: block;
+            background-color: #262626;
+            color: #FFFFFF;
+            border: 1px solid #444444;
+            padding: 5px 0;
+            text-align: center;
+            font-size: 8px;
+            font-weight: bold;
+            width: 82px;
+            margin-bottom: 4px;
+        }
+
+        .vertical-btn:active {
+            background-color: #444444;
+        }
+
+        .play-pause-btn {
+            background-color: #331111;
+            color: #FF4444;
+            border: 1px solid #552222;
+        }
+
+        .play-pause-btn:active {
+            background-color: #552222;
+        }
+    </style>
+
+    <script type="text/javascript">
+        var currentVideoFolder = "";
+        var currentVideoTitle = "";
+        var currentClipIndex = 1;
+        var totalClips = 10;
+        var clipTimer = null;
+        var clipDuration = 20000; // 20 segundos por fragmento
+        var isPlaying = false;
+
+        // Base de datos estática indexada por carpetas (vid1, vid2, etc.)
+        // Configurada con los números exactos de partes de tus archivos
+        var videosData = {
+            "vid1": { title: "Mario's Unlucky Day", clips: 9 },
+            "vid2": { title: "SM64 Bloopers 3", clips: 8 },
+            "vid3": { title: "If You Laugh You Lose", clips: 9 },
+            "vid4": { title: "Grim Reaper Prank", clips: 5 },
+            "vid5": { title: "Top 10 Memes", clips: 3 },
+            "vid6": { title: "Meet the Admin: Minecraft", clips: 8 }
+        };
+
+        // Cambiar vistas dentro de la pantalla táctil de 256x192
+        function showView(viewId) {
+            if (viewId === 'menu') {
+                stopPlayback();
+                document.getElementById('view-menu').style.display = 'block';
+                document.getElementById('view-player').style.display = 'none';
+            } else if (viewId === 'player') {
+                document.getElementById('view-menu').style.display = 'none';
+                document.getElementById('view-player').style.display = 'block';
+            }
+        }
+
+        // Carga el video seleccionado por el usuario
+        function loadVideo(videoId) {
+            var videoInfo = videosData[videoId];
+            if (!videoInfo) return;
+
+            currentVideoFolder = videoId;
+            currentVideoTitle = videoInfo.title;
+            totalClips = videoInfo.clips;
+            currentClipIndex = 1;
+
+            // Ajustar los datos del panel derecho de control
+            document.getElementById('player-title').innerHTML = currentVideoTitle;
+            
+            showView('player');
+            startPlayback();
+        }
+
+        function handleImgError() {
+            var staticImg = document.getElementById('video-screen');
+            var errorLog = document.getElementById('error-log');
+            var statusBadge = document.getElementById('player-status');
+            
+            if (statusBadge) {
+                statusBadge.innerHTML = "ERR: 404";
+                statusBadge.style.color = "#FF4444";
+            }
+
+            // Ocultamos la imagen rota y mostramos la consola de diagnóstico en el recuadro
+            if (staticImg) {
+                staticImg.style.display = "none";
+            }
+
+            if (errorLog && staticImg) {
+                errorLog.style.display = "block";
+                errorLog.innerHTML = "<b>[DIAGNÓSTICO DSiTube]</b><br>" +
+                                      "No se encuentra el archivo.<br><br>" +
+                                      "Ruta buscada:<br>" +
+                                      "<span style='color:#FFF;'>" + staticImg.getAttribute('src') + "</span><br><br>" +
+                                      "Verifica la carpeta o la extensión .gif";
+            }
+        }
+
+        function displayCurrentClip() {
+            var staticImg = document.getElementById('video-screen');
+            var errorLog = document.getElementById('error-log');
+            var statusBadge = document.getElementById('player-status');
+            
+            // Actualizar la etiqueta del estado actual y restaurar color verde
+            if (statusBadge) {
+                statusBadge.innerHTML = "P. " + currentClipIndex + "/" + totalClips;
+                statusBadge.style.color = "#00FF00";
+            }
+
+            // Ocultar consola de error al cargar un nuevo fragmento
+            if (errorLog) {
+                errorLog.style.display = "none";
+            }
+
+            if (staticImg) {
+                staticImg.style.display = "block";
+                // Apunta directamente a la carpeta raíz del video usando rutas relativas
+                staticImg.src = currentVideoFolder + "/pt" + currentClipIndex + ".gif";
+            }
+        }
+
+        function startPlayback() {
+            isPlaying = true;
+            document.getElementById('play-btn-text').innerHTML = "[ PAUSA ]";
+            displayCurrentClip();
+            resetTimer();
+        }
+
+        function resetTimer() {
+            if (clipTimer) {
+                clearTimeout(clipTimer);
+                clipTimer = null;
+            }
+            if (isPlaying) {
+                clipTimer = setTimeout(autoAdvance, clipDuration);
+            }
+        }
+
+        function autoAdvance() {
+            if (currentClipIndex < totalClips) {
+                currentClipIndex++;
+                displayCurrentClip();
+                resetTimer();
+            } else {
+                document.getElementById('player-status').innerHTML = "FIN";
+                stopPlayback();
+            }
+        }
+
+        function stopPlayback() {
+            isPlaying = false;
+            if (clipTimer) {
+                clearTimeout(clipTimer);
+                clipTimer = null;
+            }
+            document.getElementById('play-btn-text').innerHTML = "[ PLAY ]";
+        }
+
+        function goToNextClip() {
+            if (currentClipIndex < totalClips) {
+                currentClipIndex++;
+                displayCurrentClip();
+                resetTimer(); 
+            } else {
+                document.getElementById('player-status').innerHTML = "FIN";
+                stopPlayback();
+            }
+        }
+
+        function goToPrevClip() {
+            if (currentClipIndex > 1) {
+                currentClipIndex--;
+                displayCurrentClip();
+                resetTimer(); 
+            }
+        }
+
+        function togglePlayPause() {
+            if (isPlaying) {
+                stopPlayback();
+                document.getElementById('player-status').innerHTML = "PAUSA " + currentClipIndex;
+            } else {
+                isPlaying = true;
+                document.getElementById('play-btn-text').innerHTML = "[ PAUSA ]";
+                displayCurrentClip();
+                resetTimer();
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div class="dsi-screen">
+
+        <!-- ================= SECCIÓN: MENÚ PRINCIPAL ================= -->
+        <div id="view-menu">
+            <div class="menu-header">
+                <span class="logo-text">DSi<span class="logo-badge">Tube</span></span>
+            </div>
+            
+            <div class="menu-scroll-area">
+                <!-- Video 1 -->
+                <div class="video-item" onclick="loadVideo('vid1');">
+                    <span class="video-title-link">1. Mario's Unlucky Day</span>
+                    <span class="video-meta">SM64 Blooper | 9 clips (180s)</span>
+                </div>
+
+                <!-- Video 2 -->
+                <div class="video-item" onclick="loadVideo('vid2');">
+                    <span class="video-title-link">2. SM64 Bloopers 3</span>
+                    <span class="video-meta">SM64 Blooper | 8 clips (160s)</span>
+                </div>
+
+                <!-- Video 3 -->
+                <div class="video-item" onclick="loadVideo('vid3');">
+                    <span class="video-title-link">3. If You Laugh You Lose</span>
+                    <span class="video-meta">Humor Viral 2010 | 9 clips (180s)</span>
+                </div>
+
+                <!-- Video 4 -->
+                <div class="video-item" onclick="loadVideo('vid4');">
+                    <span class="video-title-link">4. Grim Reaper Prank</span>
+                    <span class="video-meta">Bromas Clásicas | 5 clips (100s)</span>
+                </div>
+
+                <!-- Video 5 -->
+                <div class="video-item" onclick="loadVideo('vid5');">
+                    <span class="video-title-link">5. Top 10 Memes</span>
+                    <span class="video-meta">Compilación Memes | 3 clips (60s)</span>
+                </div>
+
+                <!-- Video 6 -->
+                <div class="video-item" onclick="loadVideo('vid6');">
+                    <span class="video-title-link">6. Meet the Admin: Minecraft</span>
+                    <span class="video-meta">Minecraft Alpha | 8 clips (160s)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= SECCIÓN: REPRODUCTOR COMODO ================= -->
+        <div id="view-player" style="display: none;">
+            
+            <!-- Izquierda: Pantalla de Video GBC (160x144) -->
+            <div class="player-video-side">
+                <img id="video-screen" src="" onerror="handleImgError();" alt="Video">
+                <!-- Capa de diagnóstico que se activará en caso de error -->
+                <div id="error-log" class="error-overlay" style="display: none;"></div>
+            </div>
+
+            <!-- Derecha: Consola táctil de comandos (84px) -->
+            <div class="player-control-side">
+                <a href="javascript:void(0);" onclick="showView('menu');" class="back-btn">&lt; ATRÁS</a>
+                
+                <div id="player-title" class="now-playing-title">Video</div>
+                <div id="player-status" class="status-badge">P. 1/1</div>
+                
+                <div class="vertical-btn" onclick="goToNextClip();">SIGT &gt;&gt;</div>
+                <div class="vertical-btn" onclick="goToPrevClip();">&lt;&lt; ATRÁS</div>
+                <div class="vertical-btn play-pause-btn" onclick="togglePlayPause();" id="play-btn-text">[ PAUSA ]</div>
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+</html>            height: 22px;
             line-height: 22px;
             border-bottom: 2px solid #FF0000;
             text-align: center;
